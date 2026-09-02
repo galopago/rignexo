@@ -1,0 +1,4 @@
+# KiCad temporary / local files
+~*.lck
+fp-info-cache
+*.kicad_prl
