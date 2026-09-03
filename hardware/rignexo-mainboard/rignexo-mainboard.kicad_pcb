@@ -1070,7 +1070,7 @@
     (property "ki_keywords" "resistor variable")
     (path "/d7eff83b-c0b6-4f46-93d2-ca28a5e0b731")
     (attr through_hole)
-    (fp_text reference "RV2" (at 2.55 1.75 90) (layer "F.SilkS")
+    (fp_text reference "RV2" (at 2.55 -4.5 90) (layer "F.SilkS")
         (effects (font (size 0.6 0.6) (thickness 0.15)))
       (tstamp 02a4042e-d09c-4ec1-8a68-46bc66e76045)
     )
