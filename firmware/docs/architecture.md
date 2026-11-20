@@ -50,6 +50,9 @@ Two persistent modes, selected only at power-up if `MODE_SWITCH` is held
 | --- | --- | --- | --- |
 | `COMPOSITE` (1) | UAC2 + CDC | RTS/DTR line state | 1 short OFF pulse per cycle |
 | `AUDIO_VOX` (2) | UAC2 only | VOX on speaker (TX) audio | 2 short OFF pulses per cycle |
+| `COMPOSITE_CAT` (3) | UAC2 + CDC | Kenwood CAT `TX;`/`RX;` | 3 short OFF pulses per cycle |
+
+CAT mode contract: [`cat_ptt_mode_architecture.md`](cat_ptt_mode_architecture.md).
 
 Unknown/corrupt flash → effective `COMPOSITE` + heal rules; button path is
 anti-glitch with **at most one flash write per boot**. Mode LED MUST use PIO

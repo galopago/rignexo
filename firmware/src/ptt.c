@@ -4,7 +4,10 @@
 
 #include "hardware/gpio.h"
 
+static bool s_active;
+
 static void ptt_apply(bool transmit_on) {
+    s_active = transmit_on;
     gpio_put(BOARD_RADIO_PTT_OUT_GPIO,
              transmit_on ? BOARD_PTT_ACTIVE_LEVEL : !BOARD_PTT_ACTIVE_LEVEL);
     gpio_put(BOARD_TX_INDICATOR_GPIO,
@@ -27,4 +30,8 @@ void ptt_set_active(bool transmit_on) {
 
 void ptt_force_inactive(void) {
     ptt_apply(false);
+}
+
+bool ptt_is_active(void) {
+    return s_active;
 }

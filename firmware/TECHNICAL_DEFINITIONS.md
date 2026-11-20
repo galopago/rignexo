@@ -111,7 +111,7 @@ The project should advance one independently testable stage at a time:
 | 3 | CDC + ADC receive-audio hardware bring-up | GPIO 28 ADC, GPIO 14, GPIO 27 | Firmware can sample ADC without disturbing CDC/PTT |
 | 4 | Composite USB CDC + one USB Audio direction | GPIOs from prior stages | Host enumeration remains stable after adding one audio function |
 | 5 | Full composite USB CDC + bidirectional USB Audio | GPIO 28, 2, 14, 27 | Final FT8-oriented audio/PTT behavior |
-| 6 | Device modes | GPIO 15, GPIO 0 + dual USB / VOX | Boot-time mode select; `COMPOSITE` vs `AUDIO_VOX` per `docs/device_modes_architecture.md` |
+| 6 | Device modes | GPIO 15, GPIO 0 + dual USB / VOX / CAT | Boot-time modes: `COMPOSITE`, `AUDIO_VOX`, `COMPOSITE_CAT` — see `docs/device_modes_architecture.md` and `docs/cat_ptt_mode_architecture.md` |
 
 Do not move to the next stage until the current stage is flashed and validated on the host.
 

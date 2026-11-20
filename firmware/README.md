@@ -33,9 +33,10 @@ The serial/control portion should provide a way for host software to control the
 - The RTS line must be mapped to a physical GPIO.
 - That GPIO is expected to drive the radio PTT control path, subject to the required electrical interface.
 - RTS maps to PTT relay GPIO **14**; PTT LED GPIO **27**; speaker PWM GPIO **2**; audio ADC GPIO **28** (`board_config.h`).
-- Mode switch GPIO **15** and mode LED GPIO **0** (PIO: mostly on, 1 vs 2 off
-  pulses): boot-time persistent modes (`COMPOSITE` vs `AUDIO_VOX`) — see
-  [docs/device_modes_architecture.md](docs/device_modes_architecture.md).
+- Mode switch GPIO **15** and mode LED GPIO **0** (PIO: mostly on, 1 / 2 / 3 off
+  pulses): boot-time modes `COMPOSITE`, `AUDIO_VOX`, `COMPOSITE_CAT` — see
+  [docs/device_modes_architecture.md](docs/device_modes_architecture.md) and
+  [docs/cat_ptt_mode_architecture.md](docs/cat_ptt_mode_architecture.md).
 
 The firmware implements composite CDC + UAC2 (see [BUILD.md](BUILD.md)).
 

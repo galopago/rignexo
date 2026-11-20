@@ -20,6 +20,53 @@ Technical conclusion:
 ## Runs
 
 ```text
+ID: RGNX_FW_CAT_IF_HAMLIB_V1
+Date: 2026-11-20
+CHIP / board: rp2350; COMPOSITE_CAT; Mac + Linux
+Commands: build PASS; human WSJT-X Test CAT after D20 IF fix
+Result: PASS
+Evidence:
+  - Two WSJT-X versions: Test CAT OK (TS-2000)
+  - PTT via CAT on/off OK
+  - Prior unsupported VFO None cleared by 38-byte IF
+Human observations: works with two WSJT-X versions; emulator + CAT PTT OK
+Technical conclusion: Hamlib/WSJT-X CAT path accepted for COMPOSITE_CAT.
+```
+
+```text
+ID: RGNX_FW_CAT_STATE_RAM_V1
+Date: 2026-11-20
+CHIP / board: rp2350; COMPOSITE_CAT; …-if03
+Commands: full Kenwood host suite after human flash
+Result: PASS
+Evidence:
+  - Set→get FA/FB/MD/FW/SL/SH/PC/FR/FT/AI/RG/AG/SQ (silent set ack)
+  - IF tracks FA+MD+PTT; TX/TX0/TX1/RX OK
+  - Malformed/unknown → ?;
+  - RTS ignored; AG050→?; but AG100/AG0050/AG0100 OK
+Human observations: n/a this run
+Technical conclusion: Soft-radio RAM state behaves as D19 / architecture.
+```
+
+```text
+ID: RGNX_FW_CAT_PTT_V1
+Date: 2026-11-20
+CHIP / board: rp2350 / waveshare_rp2350_zero
+Commands:
+  ./scripts/build.sh → PASS
+  Host CAT over …-if03 / ttyACM0 → PASS
+Hardware: human-flashed; mode COMPOSITE_CAT
+Result: PASS
+Evidence:
+  - ID019; FA/FB stubs; MD2; AI0; IF shape; ZZ→?;
+  - TX1;/TX; set IF TX bit; RX; clears; no CDC reply on TX/RX
+  - RTS assert does not set IF TX bit (CAT-only PTT)
+  - RTS-only visual: human confirms relay+PTT LED stayed off
+Human observations: device present as RIGNEXO interface if03; RTS no relay
+Technical conclusion: Kenwood CAT dialect responds; PTT via CAT only; RTS ignored.
+```
+
+```text
 ID: RGNX_FW_MODE_SWITCH_POLARITY_H1_BUILD
 Date: 2026-11-19
 CHIP / board: rp2350 / waveshare_rp2350_zero

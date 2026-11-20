@@ -16,12 +16,112 @@ Before starting any task in this file, run the **Role Boundary Check**:
 
 Active / recent handoffs:
 
-- `RGNX_FW_MODE_SWITCH_POLARITY` — **H1 / D16 docs closed** 2026-11-19 (active
-  high + pull-down). Implementer **pending** source fix; then tester
-  re-validate. (Architect must not edit `src/`.)
-- LED/GPIO0 (D15 Option A): docs closed; implementer LED fix done; compile PASS.
-- `RGNX_FW_PINMAP_V1` (**docs complete**; implementer **implemented**)
-- `RGNX_FW_ASBUILT_V1` (**docs complete / CLOSED** 2026-11-19)
+- **`RGNX_FW_CAT_IF_HAMLIB_V1`** — docs complete; implementer **pending**
+  (WSJT-X / Hamlib VFO None FAIL).
+- `RGNX_FW_CAT_STATE_RAM_V1` — implemented; Linux suite PASS; app CAT FAIL
+  (superseded by IF-Hamlib handoff).
+- `RGNX_FW_CAT_PTT_V1` (**docs + code**; base CAT PTT OK)
+
+## RGNX_FW_CAT_IF_HAMLIB_V1
+
+```text
+Role boundary check: architect docs only; ZERO CODE LAW.
+ID: RGNX_FW_CAT_IF_HAMLIB_V1
+Date: 2026-11-20
+Source: tester return — WSJT-X Test CAT FAIL (below)
+Objective:
+  Normative Hamlib-compatible IF; frame (length 38 + VFO byte) so
+  current_vfo resolves; pending implementer in cat_kenwood reply_if.
+Authorized: docs/cat_ptt_mode_architecture.md § IF frame, decisions D20,
+  implementer handoff pending, test_strategy criterion 10.
+Constraints: no src/; no change to PTT/RTS rules; keep soft-state set=get.
+Status: docs complete; implementer pending 2026-11-20
+```
+
+## RETURN FROM TESTER — WSJT-X `unsupported VFO None` (2026-11-20)
+
+```text
+From: tester (human Mac WSJT-X + Hamlib 4.7.1; device COMPOSITE_CAT)
+To: architect
+Action: CLOSED for docs as RGNX_FW_CAT_IF_HAMLIB_V1 (D20)
+```
+
+### Confirmed host settings (not misconfig)
+
+- Rig: Kenwood TS-2000
+- Serial Port: `/dev/cu.usbmodem104` (correct; not Bluetooth)
+- Baud 9600, Handshake None, PTT Method CAT
+- Test CAT → Rig failure
+
+### Hamlib log (smoking gun)
+
+- `rig_get_freq` **succeeds**: `freqMainA=14074000`, `modeMainA=USB`, `widthMainA=2200`
+- Cache: `vfo=VFOA, current_vfo=None`
+- Then: `kenwood_set_freq: unsupported VFO None` → Invalid parameter
+  *while setting frequency*
+
+### Architect diagnosis (D20)
+
+Hamlib TS-2000 `get_vfo = kenwood_get_vfo_if` needs a **37-char** `IF` payload
+after stripping `;` (wire **38**). Soft-state `IF` was **37 including `;`**
+→ length reject → `current_vfo` never set → WSJT-X `set_freq(None)` fails.
+Also lock `info[30]` from `fr_vfo` (cold-start `0` = VFO A).
+
+Linux scripted CAT PASS does **not** cover this path.
+
+Normative: `docs/cat_ptt_mode_architecture.md` § IF frame.
+Implementer: `../implementer/handoff.md` `RGNX_FW_CAT_IF_HAMLIB_V1`.
+
+Evidence: `../tester/handoff.md`; human screenshot 2026-11-20.
+
+## RGNX_FW_CAT_STATE_RAM_V1
+
+```text
+Role boundary check: architect docs only; ZERO CODE LAW.
+ID: RGNX_FW_CAT_STATE_RAM_V1
+Date: 2026-11-20
+Source:
+  Human + tester: CAT mode works partially; apps set frequency **and** other
+  knobs (e.g. filter width) but device answers fixed stubs. Want set values
+  held in RAM so get/IF match.
+Objective:
+  Normative soft-radio RAM state for FA/FB/MD/FW/SL/SH/PC/FR/FT + IF;
+  pending implementer.
+Authorized: docs/cat_ptt_mode_architecture.md, decisions, implementer handoff
+  pending, test_strategy acceptance bullets.
+Constraints: no src/; no flash VFO; no real RF.
+Status: docs complete; implementer pending 2026-11-20
+```
+- `RGNX_FW_MODE_SWITCH_POLARITY` — H1 / D16; implementer reported implemented
+  — tester re-validate as needed
+- LED/GPIO0 (D15 Option A): docs closed; implementer LED fix done
+- `RGNX_FW_PINMAP_V1` / `RGNX_FW_ASBUILT_V1` (closed / complete)
+
+## RGNX_FW_CAT_PTT_V1
+
+```text
+Role boundary check:
+  Architect docs only. ZERO CODE LAW — no src/ edits.
+ID: RGNX_FW_CAT_PTT_V1
+Date: 2026-11-20
+Source:
+  Human: third mode; PTT via CAT for apps that do not use RTS; same as
+  sound+serial plus command decoder; survey radio CAT options; implement
+  TX on/off for real; stub other commands so hosts do not crash.
+Objective:
+  (1) Survey CAT options; choose Kenwood ASCII TS-2000-class for v1.
+  (2) Normative docs/cat_ptt_mode_architecture.md.
+  (3) Extend device_modes / architecture for mode 3 + 3-pulse LED.
+  (4) Pending implementer phases (enum/LED → parser/PTT → stubs).
+Constraints:
+  Architect MUST NOT edit src/.
+  No CI-V / Yaesu as primary profile in v1.
+Acceptance (architect):
+  - Options surveyed; Kenwood chosen with rationale (D18).
+  - Mode 3 USB/PTT/LED/stubs specified.
+  - Implementer pending list concrete.
+Status: docs complete; implementer pending 2026-11-20
+```
 
 ## RETURN FROM TESTER — MODE_SWITCH polarity (2026-11-19)
 

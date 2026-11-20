@@ -1,5 +1,68 @@
 # Architect decisions — `rignexo/firmware`
 
+## RGNX_FW_CAT_IF_HAMLIB_V1 — 2026-11-20
+
+### D20 — Hamlib-compatible `IF;` frame (length + VFO byte)
+
+**Decision:** After WSJT-X Test CAT FAIL (`kenwood_set_freq: unsupported VFO
+None` while `current_vfo=None`), treat the Kenwood `IF;` reply as a
+**fixed-length Hamlib contract**, not a loose stub.
+
+- Wire length **38** including `;` (Hamlib strips `;` and expects **37**).
+- `priv->info[30]` MUST be `0`/`1`/`2` (A/B/MEM) from soft `fr_vfo`.
+- `info[28]` TX from live PTT; `info[29]` MD from soft mode; `info[32]` split
+  from `fr_vfo != ft_vfo`.
+- Six ASCII spaces after frequency; RIT field six **digits** (no `+`/`-`
+  that shifts later bytes).
+- Cold-start normative string:
+  `IF00014074000      000000000020000000;`
+
+**Why:** Soft-state FA/MD set-then-get PASS on Linux scripts does not exercise
+Hamlib’s `kenwood_get_vfo_if` → `set_freq(VFO_NONE)` path used by WSJT-X.
+A short `IF` leaves `current_vfo` unset.
+
+**Evidence:** tester handoff 2026-11-20; Hamlib `kenwood.c` /
+`kenwood_get_vfo_if`; default `if_len=37`.
+
+## RGNX_FW_CAT_STATE_RAM_V1 — 2026-11-20
+
+### D19 — CAT soft state in RAM (set = get)
+
+**Decision:** After partial tester PASS on CAT PTT, upgrade Kenwood stubs to a
+RAM soft-radio state. **Set = get** for at least:
+
+- `FA` / `FB` (frequency)
+- `MD` (mode)
+- `FW` (filter **width**)
+- `SL` / `SH` (SSB cut / width-related)
+- `PC` (power)
+- `FR` / `FT` (VFO select)
+- `IF;` built from current state + live PTT bit
+
+Defaults on `cat_kenwood_init` MUST be the **coherent cold-start digi profile**
+(14.074 MHz USB, FW 2700, SL00/SH08, PC100, VFO A, SQ open, gains full,
+SM zero, ID019). No flash. PTT only TX/RX. Further opcodes MAY be added when
+tester logs them.
+
+**Why:** Apps set frequency, width, and other knobs then read them back; they
+also **poll before set**. Random/`?;` on first poll breaks CAT tests.
+
+## RGNX_FW_CAT_PTT_V1 — 2026-11-20
+
+### D18 — Third mode `COMPOSITE_CAT` with Kenwood ASCII CAT
+
+**Decision:** Add mode 3: same USB composite as mode 1 (UAC2 + CDC), PTT from
+Kenwood-style CAT (`TX;` / `TX0;` / `TX1;` assert; `RX;` release). RTS/DTR MUST
+NOT key PTT in this mode. Emulate **TS-2000-class** ASCII (`;`-terminated).
+Stub FA/FB/MD/IF/ID/AI; unknown → `?;`. MODE_LED = **3** off pulses. Cycle:
+COMPOSITE → AUDIO_VOX → COMPOSITE_CAT → COMPOSITE.
+
+**Alternatives considered:** Icom CI-V (common but binary/heavy); Yaesu
+(fragmented / often dual-COM RTS). Deferred as non-goals for v1.
+
+**Why:** Apps that PTT via CAT; Kenwood profile is the simplest widely offered
+“rig type” for a fake interface.
+
 ## Process — ZERO CODE LAW reinforcement (2026-11-19)
 
 ### D17 — Architect never edits firmware source
@@ -26,15 +89,16 @@ Operator must disconnect to change personality.
 **Why:** Avoids hot USB re-enumeration; matches human request; reliable across
 OSes.
 
-### D9 — Two modes and PTT sources
+### D9 — Modes and PTT sources (extended by D18)
 
 **Decision:**
 
 - `COMPOSITE`: UAC2 + CDC; PTT from RTS/DTR as today.
 - `AUDIO_VOX`: UAC2 only (no CDC); PTT from VOX on **speaker** (TX) audio.
+- `COMPOSITE_CAT` (D18): UAC2 + CDC; PTT from Kenwood CAT; RTS ignored.
 
 Default / corrupt / unknown mode byte → effective `COMPOSITE` (+ heal rules).
-MODE_LED: PIO mostly-on with 1 vs 2 off pulses (D13).
+MODE_LED: PIO mostly-on with 1 / 2 / **3** off pulses.
 
 ### D10 — Distinct USB PID per mode
 

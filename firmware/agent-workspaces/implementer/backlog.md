@@ -2,7 +2,7 @@
 
 ## Open
 
-_(none)_
+- `RGNX_FW_CAT_IF_HAMLIB_V1` — Hamlib/WSJT-X `IF;` frame (see `handoff.md`)
 
 ## Notes
 

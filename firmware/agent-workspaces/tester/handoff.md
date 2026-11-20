@@ -1,16 +1,21 @@
 # Tester handoff — `rignexo/firmware`
 
-## Current — `RGNX_FW_MODE_SWITCH_POLARITY` (H1)
+## Current — `RGNX_FW_CAT_IF_HAMLIB_V1` + CAT stack
 
 | Field | Value |
 | --- | --- |
-| Status | **PASS** (compile only) |
-| Source | implementer H1 — `ACTIVE_LEVEL=1`, `gpio_pull_down` |
-| Command | `./scripts/build.sh` |
-| Artefact | `build/rp2350/rpi_pico_composite_sound_serial.uf2` (53K) |
-| Source check | `board_config.h` ACTIVE_LEVEL **1**; `mode_store.c` **pull_down** |
+| Compile | PASS |
+| Linux CAT suite | PASS (prior) |
+| WSJT-X Test CAT | **PASS** (human 2026-11-20) |
 
-### Pending hardware
+### Human validation
 
-1. Replug USB **without** button → mode must **not** change  
-2. Hold button while plugging → mode advances once  
+- Two different WSJT-X versions: **PASS**
+- Kenwood TS-2000 emulator: **PASS**
+- PTT via CAT (TX/RX): activates and releases — **PASS**
+
+Prior FAIL (`unsupported VFO None`) resolved by D20 / 38-byte IF frame.
+
+### Status
+
+**CLOSED** for CAT host acceptance (human + prior automated suite).

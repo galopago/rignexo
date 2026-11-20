@@ -30,6 +30,7 @@ pico_generate_pio_header(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/src/mode_le
 target_sources(${PROJECT_NAME} PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src/audio_adc.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/audio_pwm.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/cat_kenwood.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/cdc_app.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/cdc_line_state.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/main.c

@@ -23,13 +23,15 @@ maintained in English.
 
 ## Purpose
 
-Support two host-visible personalities without runtime USB re-enumeration:
+Support host-visible personalities without runtime USB re-enumeration:
 
-1. **COMPOSITE** (mode 1) — USB Audio (UAC2) + USB CDC serial (current product
-   behavior). PTT from host RTS (or DTR per `BOARD_PTT_USE_RTS_LINE`).
-2. **AUDIO_VOX** (mode 2) — USB Audio only (no CDC interface). PTT from VOX
-   detection on host→radio (speaker) audio. Improves compatibility with
-   hosts/OSes that mishandle or reject composite serial ports.
+1. **COMPOSITE** (mode 1) — USB Audio (UAC2) + USB CDC serial. PTT from host
+   RTS (or DTR per `BOARD_PTT_USE_RTS_LINE`).
+2. **AUDIO_VOX** (mode 2) — USB Audio only (no CDC). PTT from VOX on
+   host→radio (speaker) audio.
+3. **COMPOSITE_CAT** (mode 3) — USB Audio + CDC like mode 1, but PTT from
+   **Kenwood-style CAT** (`TX;` / `RX;`). See
+   [`cat_ptt_mode_architecture.md`](cat_ptt_mode_architecture.md).
 
 Mode changes are **permanent** until changed again, and are performed only at
 **power-up / USB attach** while the mode pushbutton is held. The operator
@@ -42,8 +44,9 @@ pushbutton **MUST NOT** change mode while the device is already running.
 | --- | --- | --- | --- |
 | `COMPOSITE` | 1 | UAC2 + CDC | CDC line state (RTS default) |
 | `AUDIO_VOX` | 2 | UAC2 only (no CDC) | Speaker-path VOX |
+| `COMPOSITE_CAT` | 3 | UAC2 + CDC | Kenwood CAT TX/RX (RTS ignored) |
 
-Cyclic order: `COMPOSITE` → `AUDIO_VOX` → `COMPOSITE` → …
+Cyclic order: `COMPOSITE` → `AUDIO_VOX` → `COMPOSITE_CAT` → `COMPOSITE` → …
 
 Mode LED indication is **not** a static on/off level; see **Mode LED (PIO)**.
 
@@ -150,10 +153,19 @@ Timeline (active-high LED; `█` = ON, `_` = OFF):
                      ~150 ~150 ~150 ms
 ```
 
+**Mode 3 — `COMPOSITE_CAT` (sound + serial + CAT PTT)** — three dark flashes:
+
+```text
+████████████████_███_███_███_████████████████_███_███_███_██ …
+|← quiet ON ~800 →|↑|↑|↑|← —— quiet ON —— →|
+                   OFF×3 with ~150 ms gaps
+```
+
 | Mode | What to count | Cycle (approx.) |
 | --- | --- | --- |
 | `COMPOSITE` (1) | **1** short OFF per ~1 s | quiet ON 700–1000 ms; OFF 120–180 ms |
 | `AUDIO_VOX` (2) | **2** short OFFs, then a long ON | same OFF/gap widths; quiet ON 700–1000 ms |
+| `COMPOSITE_CAT` (3) | **3** short OFFs, then a long ON | same timings |
 
 Constants live in `board_config.h` (`BOARD_MODE_LED_OFF_MS`,
 `BOARD_MODE_LED_GAP_MS`, `BOARD_MODE_LED_QUIET_ON_MS`). Same values on RP2350

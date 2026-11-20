@@ -35,3 +35,31 @@ gap_delay:
 off2_delay:
     jmp x-- off2_delay
 .wrap
+
+.program mode_led_3pulse
+.wrap_target
+    set pins, 1
+    mov x, isr
+quiet3:
+    jmp x-- quiet3
+    set pins, 0
+    mov x, y
+off3_1:
+    jmp x-- off3_1
+    set pins, 1
+    mov x, y
+gap3_1:
+    jmp x-- gap3_1
+    set pins, 0
+    mov x, y
+off3_2:
+    jmp x-- off3_2
+    set pins, 1
+    mov x, y
+gap3_2:
+    jmp x-- gap3_2
+    set pins, 0
+    mov x, y
+off3_3:
+    jmp x-- off3_3
+.wrap

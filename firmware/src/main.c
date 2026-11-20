@@ -30,6 +30,7 @@
 #include "bsp/board_api.h"
 #include "audio_adc.h"
 #include "audio_pwm.h"
+#include "cat_kenwood.h"
 #include "mode_led_pio.h"
 #include "mode_store.h"
 #include "ptt.h"
@@ -53,6 +54,9 @@ int main(void)
   audio_pwm_init();
   audio_adc_init();
   vox_init();
+  if (device_mode_is_composite_cat()) {
+    cat_kenwood_init();
+  }
 
   // init device stack on configured roothub port
   tusb_rhport_init_t dev_init = {
