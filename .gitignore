@@ -2,3 +2,12 @@
 ~*.lck
 fp-info-cache
 *.kicad_prl
+
+# Firmware build artifacts and dependencies (kept under firmware/)
+firmware/build/
+firmware/external/
+*.uf2
+*.elf
+*.bin
+*.map
+*.dis

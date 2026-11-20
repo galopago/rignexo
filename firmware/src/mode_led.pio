@@ -1,0 +1,37 @@
+;
+; Forever MODE_LED patterns (mostly ON, short OFF pulses).
+; ISR = quiet-ON loop count, Y = short pulse/gap loop count (loaded from C).
+; Active-high LED: set pins, 1 = ON.
+;
+
+.program mode_led_1pulse
+.wrap_target
+    set pins, 1
+    mov x, isr
+on_delay:
+    jmp x-- on_delay
+    set pins, 0
+    mov x, y
+off_delay:
+    jmp x-- off_delay
+.wrap
+
+.program mode_led_2pulse
+.wrap_target
+    set pins, 1
+    mov x, isr
+quiet_delay:
+    jmp x-- quiet_delay
+    set pins, 0
+    mov x, y
+off1_delay:
+    jmp x-- off1_delay
+    set pins, 1
+    mov x, y
+gap_delay:
+    jmp x-- gap_delay
+    set pins, 0
+    mov x, y
+off2_delay:
+    jmp x-- off2_delay
+.wrap
