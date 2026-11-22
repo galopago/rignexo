@@ -32,6 +32,8 @@ Support host-visible personalities without runtime USB re-enumeration:
 3. **COMPOSITE_CAT** (mode 3) — USB Audio + CDC like mode 1, but PTT from
    **Kenwood-style CAT** (`TX;` / `RX;`). See
    [`cat_ptt_mode_architecture.md`](cat_ptt_mode_architecture.md).
+4. **APRS_TNC** (mode 4) — USB CDC **KISS** only (no UAC2); on-device Bell 202
+   AFSK modem. See [`aprs_tnc_mode_architecture.md`](aprs_tnc_mode_architecture.md).
 
 Mode changes are **permanent** until changed again, and are performed only at
 **power-up / USB attach** while the mode pushbutton is held. The operator
@@ -45,8 +47,10 @@ pushbutton **MUST NOT** change mode while the device is already running.
 | `COMPOSITE` | 1 | UAC2 + CDC | CDC line state (RTS default) |
 | `AUDIO_VOX` | 2 | UAC2 only (no CDC) | Speaker-path VOX |
 | `COMPOSITE_CAT` | 3 | UAC2 + CDC | Kenwood CAT TX/RX (RTS ignored) |
+| `APRS_TNC` | 4 | CDC only (KISS); **no** UAC2 | Modem TX (TXDELAY/TXTAIL) |
 
-Cyclic order: `COMPOSITE` → `AUDIO_VOX` → `COMPOSITE_CAT` → `COMPOSITE` → …
+Cyclic order: `COMPOSITE` → `AUDIO_VOX` → `COMPOSITE_CAT` → `APRS_TNC` →
+`COMPOSITE` → …
 
 Mode LED indication is **not** a static on/off level; see **Mode LED (PIO)**.
 
@@ -54,7 +58,7 @@ Mode LED indication is **not** a static on/off level; see **Mode LED (PIO)**.
 
 If the persisted record is missing, has bad magic/checksum, or the mode field
 is **any value other than** the defined enum members (`COMPOSITE`,
-`AUDIO_VOX`):
+`AUDIO_VOX`, `COMPOSITE_CAT`, `APRS_TNC`):
 
 1. Firmware MUST treat the effective mode for **this boot** as **`COMPOSITE`**.
 2. Firmware MUST NOT crash, assert-loop, or leave USB uninitialized.
@@ -161,15 +165,85 @@ Timeline (active-high LED; `█` = ON, `_` = OFF):
                    OFF×3 with ~150 ms gaps
 ```
 
+**Mode 4 — `APRS_TNC` (KISS modem, no USB audio)** — four dark flashes:
+
+```text
+████████████_███_███_███_███_████████████_███_███_███_███_██ …
+|← quiet ON →|↑|↑|↑|↑|← —— quiet ON —— →|
+              OFF×4 ; inter-blink period FIXED
+```
+
+**Mode 4 packet LED overlay (D40 — supersedes D39 short-OFF polarity):**
+
+- Count remains **4** OFF events per cycle (mode identity).  
+- **Quiet-ON** between cycles: **FIXED** (800 ms).  
+- **Inter-blink period** (falling-edge → falling-edge): **FIXED** at **300 ms**
+  (TICK).  
+- Modes **1–3**: unchanged (OFF/GAP **150/150**).
+
+| Mode 4 state | OFF | GAP | When |
+| --- | ---: | ---: | --- |
+| **Baseline** (cold / idle / no recent FCS / after hold) | **150** | **150** | **Identical to modes 1–3** |
+| **Packet OK** (FCS-OK + hold) | **long** (**250**) | **TICK−OFF** (**50**) | **Only** after FCS-OK; hold then returns to baseline |
+
+Polarity (human + tester, evening 2026-11-21): **baseline = familiar 150/150**;
+**good packet = longer OFF** (dark flash survives retinal persistence). D39
+“good = short OFF 80” is **withdrawn**.
+
+**Why OFF_PKT=250 (not 260):** TICK stays 300. Extreme 260/40 collapses edges
+(D36). Path: 220 → 240 → **250/50** (human +10 ms). Do **not** jump to 260
+without eye check. Do **not** reopen TICK/count/quiet in this handoff.
+
+**Metric:** packet blink **only** from FCS-OK. Amplitude/`af_pp` must **never**
+promote long-OFF. See § Packet LED metric (D40).
+
+**Human hold (mandatory — packets are short):** An APRS burst is often **≤1 s**,
+then silence. Without hold, the long-OFF flash is a blink and gone.
+
+Normative behavior (D40):
+
+1. Cold / mode entry / CLR / no recent FCS → **baseline 150/150**.  
+2. On **FCS-OK** → set **packet long-OFF** and start/refresh hold
+   (`BOARD_MODE4_AF_HOLD_MS`, **3000**).  
+3. While hold armed → keep long OFF (silence OK).  
+4. Hold expiry → **baseline 150/150**.  
+5. Amplitude/`pp` never arms packet blink; may only leave/force baseline.  
+6. Each new FCS-OK **retriggers** hold.
+
+**Hold owner:** CPU glue + expiry tick (not PIO).
+
 | Mode | What to count | Cycle (approx.) |
 | --- | --- | --- |
 | `COMPOSITE` (1) | **1** short OFF per ~1 s | quiet ON 700–1000 ms; OFF 120–180 ms |
 | `AUDIO_VOX` (2) | **2** short OFFs, then a long ON | same OFF/gap widths; quiet ON 700–1000 ms |
 | `COMPOSITE_CAT` (3) | **3** short OFFs, then a long ON | same timings |
+| `APRS_TNC` (4) | **4** OFFs, then a long ON | quiet + inter-blink period fixed; OFF duty = AF |
 
-Constants live in `board_config.h` (`BOARD_MODE_LED_OFF_MS`,
-`BOARD_MODE_LED_GAP_MS`, `BOARD_MODE_LED_QUIET_ON_MS`). Same values on RP2350
-and RP2040.
+Constants live in `board_config.h`:
+
+| Symbol | Modes 1–3 / default | Mode 4 AF overlay |
+| --- | --- | --- |
+| `BOARD_MODE_LED_QUIET_ON_MS` | **800** (fixed all modes) | same — **must not** track AF |
+| `BOARD_MODE_LED_OFF_MS` | **150** | unused for AF path (see below) |
+| `BOARD_MODE_LED_GAP_MS` | **150** (today often = OFF) | unused for AF path |
+| `BOARD_MODE4_LED_TICK_MS` | — | **300** (↓→↓ fixed) |
+| `BOARD_MODE4_LED_OFF_BASELINE_MS` | — | **150** (same as modes 1–3) |
+| `BOARD_MODE4_LED_GAP_BASELINE_MS` | — | **150** (same as modes 1–3) |
+| `BOARD_MODE4_LED_OFF_PKT_MS` | — | **250** (long OFF after FCS-OK) |
+| `BOARD_MODE4_LED_GAP_PKT_MS` | — | **50** (= TICK − OFF_PKT) |
+| `BOARD_MODE4_AF_HOLD_MS` | — | **3000** — keep long-OFF after FCS, then baseline |
+| Legacy short-OFF / D40.0–1 widths / D36 `260/40` | — | **Superseded** |
+
+Same values on RP2350 and RP2040. **TICK**, quiet, and pulse **count** MUST
+stay fixed unless architect reopens.
+
+#### Historical (D36 / D39 / D40.x)
+
+- D36 extremes (260/40) collapsed pulse train / lived in long-OFF via pp.  
+- D39 short-OFF (80) did not survive human glance.  
+- D40.0: **220/80** + hold 2 s — STAT PASS; human visible.  
+- D40.1: **240/60** + hold **3 s**.  
+- **D40.2:** **250/50** + hold 3 s (+10 ms OFF; human).
 
 Patterns MUST run **forever** until power loss / reset.
 
@@ -215,16 +289,76 @@ if the PIO SM is still “enabled”.
 
 ### PIO requirement
 
+**Why PIO:** the pulse train (quiet ON, OFF dips, gaps) MUST run **without
+the CPU timing or toggling the LED**. GPIO0 waveform is owned by a PIO SM so
+USB/`tud_task`/demod load cannot stretch or jitter the mode pattern. The CPU
+MAY only (re)load delay counts rarely — it MUST NOT step the LED pin per pulse.
+
 - Waveform MUST come from a **PIO state machine** (`.pio` program), not a CPU
-  busy-loop or main-loop toggle.
-- After start, CPU MUST NOT need periodic work to keep the pattern alive.
+  busy-loop, timer-ISR toggle, or main-loop blink.
+- After start, CPU MUST NOT need periodic work to keep the **base** pattern
+  alive (modes 1–3: load delays once).
+- Mode 4 AF overlay: CPU MAY call `mode_led_pio_set_af_good` on a slow cadence
+  (~100–250 ms) to refresh OFF/GAP **registers**; the SM still emits every pulse
+  autonomously. That refresh is **not** “CPU doing the blinks.”
 - Document which PIO block/SM in implementer notes (current preference: PIO1
   SM0 is fine if free).
 - Do **not** fall back to a USB-blocking blink loop without a new architect
   handoff.
 
-Module: `mode_led_pio` — `mode_led_pio_start(mode)` loads the 1-pulse or
-2-pulse program and enables the SM once.
+Module: `mode_led_pio` — `mode_led_pio_start(mode)` loads the 1-/2-/3-/4-pulse
+program and enables the SM once.
+
+### Mode 4 only — AF updates PIO delay variable(s)
+
+GPIO0 remains **PIO-owned**. The RX / AFSK path MUST **not** bit-bang the LED.
+
+| Rule | Requirement |
+| --- | --- |
+| Modes 1–3 | Same as today: fixed pulse count + fixed widths loaded once at start; **no** AF refresh |
+| Mode 4 | Still **PIO** forever-loop; **4** OFF events; quiet duration fixed; inter-blink period fixed |
+| What AF may change | **Only** the OFF width (duty) used by the mode-4 PIO program; GAP = TICK − OFF |
+| Who refreshes | Demod / AF meter (or thin glue) updates level; `mode_led_pio` applies into PIO |
+| How | Safe update of PIO delay state (reload OFF+GAP regs, or per-cycle FIFO). Brief SM pause+reload OK; **no** CPU toggle loop |
+| Today’s `.pio` gap | Current `mode_led_4pulse` uses **one** `Y` for OFF and GAP — mode 4 **MUST** gain separate OFF vs GAP delays |
+| PTT LED | Not the AF meter (TX meaning preserved) |
+
+#### Required API surface (minimal)
+
+```text
+/* modes 1–3: start only; mode 4: start + later updates */
+void mode_led_pio_start(device_mode_t mode);
+
+/* Mode 4 only — ignore/no-op in other modes.
+ * packet_ok=true → OFF_PKT (long); false → baseline 150/150. */
+void mode_led_pio_set_af_good(bool packet_ok);  /* name may stay; semantics D40 */
+```
+
+Call from AFSK glue on FCS / hold expiry / CLR — not from every ADC sample.
+Prefer apply/reload from `afsk_task` (not RX IRQ) if PIO restart glitches.
+
+#### Packet LED metric (D40 — FCS-only; long OFF on OK)
+
+**Product meaning:**
+
+- **150/150** = cold / idle / no recent good packet (same look as modes 1–3)  
+- **Long OFF (250)** = a good packet was just decoded (FCS-OK), held ~3 s  
+
+Amplitude/`af_pp` is **not** a path to packet blink. See
+`note_architect_D40_led_tweak2_2026-11-21.md`.
+
+| Event | LED |
+| --- | --- |
+| Cold start / mode entry / `RGNX CLR` | **Baseline 150/150**; clear hold |
+| FCS-OK (`afsk_on_rx_frame`) | **Long OFF 250** + arm hold **3 s** |
+| Hold armed | Keep long OFF (silence OK) |
+| Hold expired | **Baseline 150/150** |
+| `pp` / noise / mid-band | **Never** promote to long OFF |
+
+Path B `pp_good` arm stays **deleted** (D39). D38 `Laf`/`Lled` remains;
+`led_off_ms` shows **150 vs 250**.
+
+Do not gate demod on LED.
 
 ## Persistence
 
@@ -250,6 +384,9 @@ unknown.
   host CDC `…-if03`.
 - `AUDIO_VOX`: UAC2 only; CDC interfaces and CDC class MUST NOT appear to the
   host; CDC app / line-state callbacks MUST NOT run.
+- `COMPOSITE_CAT`: same USB surface as `COMPOSITE`; CDC carries Kenwood CAT.
+- `APRS_TNC`: **CDC only** (KISS); UAC2 MUST NOT appear; see
+  `aprs_tnc_mode_architecture.md`.
 - Product ID SHOULD differ between modes (use the existing TinyUSB-style PID
   bitmap / a dedicated bit) so hosts do not reuse stale COM port bindings.
 - Firmware MUST NOT disconnect/reconnect USB at runtime to switch modes in v1.
@@ -279,6 +416,17 @@ flowchart LR
 
 - PTT MUST follow CDC line state as today (`cdc_line_state.c`).
 - VOX MUST NOT assert or release PTT.
+
+### COMPOSITE_CAT
+
+- PTT MUST follow Kenwood `TX*` / `RX*` only (see `cat_ptt_mode_architecture.md`).
+- RTS/DTR MUST NOT key PTT.
+
+### APRS_TNC
+
+- PTT MUST follow the AFSK modem TX gate only (TXDELAY through TXTAIL).
+- RTS/DTR, CAT, and VOX MUST NOT key PTT.
+- ADC/PWM are owned by the modem, not UAC2.
 
 ### AUDIO_VOX
 
@@ -329,14 +477,14 @@ Also define:
 `main.c` MUST stay thin: resolve mode → start PIO LED → init peripherals →
 `tusb_init` → loop.
 
-## Non-Goals (v1)
+## Non-Goals (device-modes doc)
 
 - Changing mode without disconnect / power cycle.
-- More than two modes.
 - VOX on ADC receive audio.
 - Host-configurable VOX threshold via CDC/USB.
 - Runtime USB tear-down/re-init to switch descriptors.
 - CPU-driven mode LED blinking in the main loop.
+- Mode-4 digipeater/GPS/IGate — see `aprs_tnc_mode_architecture.md` non-goals.
 
 ## Acceptance Criteria (Tester)
 
@@ -344,14 +492,17 @@ Also define:
    flash); at most one heal write when invalid; valid clean boot → no write.
 2. Hold button on plug-in → **exactly one** mode advance despite bounce/long
    hold; pattern matches mode; survives unplug/replug without button.
-3. LED on GPIO0: steady green with **1** short dark flash (`COMPOSITE`) or **2**
-   (`AUDIO_VOX`) per ~1 s cycle, forever. Not a 50% blink. WS2812/PTT LED do
-   not count. Pattern still visible after full boot (no UART reclaim of GPIO0).
+3. LED on GPIO0: steady green with **1** / **2** / **3** / **4** short dark
+   flashes for modes 1–4 per ~1 s cycle, forever. Not a 50% blink. WS2812/PTT
+   LED do not count. Pattern still visible after full boot (no UART reclaim of
+   GPIO0).
 4. Inject/simulate unknown mode byte (or document factory corrupt test) → boots
    `COMPOSITE`, heals or advances with a single write policy as specified.
 5. `COMPOSITE`: host sees CDC (`…-if03`) + audio; RTS keys PTT; VOX does not.
 6. `AUDIO_VOX`: audio without CDC/COM; TX audio keys PTT; hang releases PTT.
-7. Builds for `CHIP=rp2350` and `CHIP=rp2040`.
+7. `COMPOSITE_CAT` / `APRS_TNC`: see their dedicated architecture acceptance
+   lists.
+8. Builds for `CHIP=rp2350` and `CHIP=rp2040`.
 
 ## Suggested Implementer Phases
 

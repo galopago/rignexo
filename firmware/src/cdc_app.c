@@ -28,6 +28,7 @@
 #include "tusb.h"
 #include "common.h"
 #include "cat_kenwood.h"
+#include "kiss_cdc.h"
 #include "mode_store.h"
 
 // Invoked when CDC interface received data from host
@@ -45,6 +46,11 @@ void tud_cdc_rx_cb(uint8_t itf) {
 
   count = tud_cdc_n_read(itf, buf, sizeof(buf));
   if (count == 0) {
+    return;
+  }
+
+  if (device_mode_is_aprs_tnc()) {
+    kiss_cdc_feed(buf, count);
     return;
   }
 

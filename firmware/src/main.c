@@ -28,9 +28,11 @@
 #include <string.h>
 
 #include "bsp/board_api.h"
+#include "afsk_bell202.h"
 #include "audio_adc.h"
 #include "audio_pwm.h"
 #include "cat_kenwood.h"
+#include "kiss_cdc.h"
 #include "mode_led_pio.h"
 #include "mode_store.h"
 #include "ptt.h"
@@ -51,11 +53,18 @@ int main(void)
   mode_led_pio_start(mode);
 
   ptt_init();
-  audio_pwm_init();
-  audio_adc_init();
-  vox_init();
-  if (device_mode_is_composite_cat()) {
-    cat_kenwood_init();
+
+  if (device_mode_is_aprs_tnc()) {
+    /* No UAC2; KISS CDC + AFSK TX/RX modem. */
+    kiss_cdc_init();
+    afsk_init();
+  } else {
+    audio_pwm_init();
+    audio_adc_init();
+    vox_init();
+    if (device_mode_is_composite_cat()) {
+      cat_kenwood_init();
+    }
   }
 
   // init device stack on configured roothub port
@@ -71,8 +80,12 @@ int main(void)
   {
     tud_task(); // TinyUSB device task
     led_blinking_task();
-    audio_task();
-    vox_task();
+    if (device_mode_is_aprs_tnc()) {
+      afsk_task();
+    } else {
+      audio_task();
+      vox_task();
+    }
   }
 }
 
@@ -92,8 +105,12 @@ void tud_umount_cb(void)
   blink_interval_ms = BLINK_NOT_MOUNTED;
   vox_on_stream_stop();
   ptt_force_inactive();
-  audio_pwm_stop();
-  audio_adc_stop();
+  if (device_mode_is_aprs_tnc()) {
+    afsk_shutdown();
+  } else {
+    audio_pwm_stop();
+    audio_adc_stop();
+  }
 }
 
 // Invoked when usb bus is suspended

@@ -16,11 +16,110 @@ Before starting any task in this file, run the **Role Boundary Check**:
 
 Active / recent handoffs:
 
-- **`RGNX_FW_CAT_IF_HAMLIB_V1`** — docs complete; implementer **pending**
-  (WSJT-X / Hamlib VFO None FAIL).
+- **`RGNX_FW_MODE4_PKT_LED_TWEAK2`** — D40.2: **250/50** + hold 3 s
+  (constants only). Implementer **pending**. Needs *act as implementer*.
+- `RGNX_FW_MODE4_PKT_LED_TWEAK` — D40.1 landed (240/60); superseded by TWEAK2.
+- `RGNX_FW_MODE4_PKT_LED_LONG` — D40.0 landed (220/80).
+- `RGNX_FW_MODE4_PKT_LED` — D39 landed (short OFF); polarity **superseded by D40**.
+- `RGNX_FW_MODE4_AF_LED_DEBUG` — D38 landed (keep dump).
+- D36/D37 polarity/assist — superseded by D39/D40.
+- `RGNX_FW_APRS_TNC_RX_REVERT_D31` — D33 revert (as status in implementer).
+- `RGNX_FW_APRS_TNC_RX_WEAK` — D32 **CLOSED FAIL / REGRESS**.
+- `RGNX_FW_APRS_TNC_RX_APLUS` — D31 A+ live baseline.
+- `RGNX_FW_APRS_TNC_TX` / `MODE_SHELL` — tester CLOSED PASS.
+- CAT IF Hamlib — as prior (implementer reported done; tester as needed).
 - `RGNX_FW_CAT_STATE_RAM_V1` — implemented; Linux suite PASS; app CAT FAIL
   (superseded by IF-Hamlib handoff).
 - `RGNX_FW_CAT_PTT_V1` (**docs + code**; base CAT PTT OK)
+
+## RGNX_FW_APRS_TNC_V1
+
+```text
+Role boundary check: architect docs only; ZERO CODE LAW.
+ID: RGNX_FW_APRS_TNC_V1
+Date: 2026-11-20
+Status: shell PASS; TX/RX pending — implementer rules locked 2026-11-20
+```
+
+Normative: `docs/aprs_tnc_mode_architecture.md` (D21 + § Implementer rules).
+Shell closed by tester. Next code = `RGNX_FW_APRS_TNC_TX` only after
+*act as implementer*.
+
+### Amendment — implementer rules for TX/RX (2026-11-20)
+
+Human: shell tests done; lock additional implementer coding rules.
+Architect: closed open questions (9600 Hz, clean-room, product string);
+added binding § Implementer rules. TX later PASSed.
+
+### Amendment — RX contract (2026-11-20)
+
+Human: TX tones PASS; write implementer guidelines for receiver.
+Architect: § RX implementer contract + D23; implementer implemented RX.
+
+### RETURN — RX demod FAIL / clock skew (2026-11-21)
+
+```text
+From: tester → D24; implementer did RX_CLOCK; live still 0 KISS
+```
+
+### RETURN — need RX debug layers (2026-11-21)
+
+D25 implemented; L1 PASS on bench.
+
+### RETURN — STAT truncated; fix transport (2026-11-21)
+
+D26 implemented; STAT PASS.
+
+### RETURN — L2 branch: bit sync (2026-11-21)
+
+D27 implemented; tester FAIL.
+
+### RETURN — RX strategy R1 (2026-11-21)
+
+D28 ported; tester FAIL (scale/level).
+
+### RETURN — D28 frozen dem / level (2026-11-21)
+
+```text
+From: tester analysis_D28_stat_vs_code + return_architect_rx_port_D28
+To: architect → D29 A1 (ADC_BIT 8) + digital AGC + dem_min/max STAT
+Next: implementer RGNX_FW_APRS_TNC_RX_LEVEL
+```
+
+Normative: `docs/aprs_tnc_mode_architecture.md` § RX level / scale fix.
+
+### RETURN — D29 AGC/CDT FAIL + field level policy (2026-11-21)
+
+```text
+From: tester analysis_D29_agc_cdt + note_architect_rx_level_ops
+To: architect → D30 (implemented; still FAIL → abandon)
+```
+
+### RETURN — RX abandon CLOSED FAIL → rethink (2026-11-21)
+
+```text
+From: tester return_architect_rx_abandon + analysis_D30_front_ok_no_frame
+To: architect → D31 A+; implementer landed; offline PASS; live LOUD PASS
+```
+
+### RETURN — D31 H1 quiet gap (2026-11-21)
+
+```text
+From: tester note_architect_D31_H1_quiet_gap
+To: architect → D32; implementer shipped W1–W5
+```
+
+### RETURN — D32 REGRESS → full revert (2026-11-21)
+
+```text
+From: tester return_architect_D32_regress
+  (35%/73%/95% all dcd=0; kills D31 ref+loud)
+To: architect → D33 FULL REVERT to D31 A+
+Next: implementer RGNX_FW_APRS_TNC_RX_REVERT_D31 (pending; *act as implementer*)
+```
+
+Normative: `docs/aprs_tnc_mode_architecture.md` § D32 revert (D33).
+No partial DCD retune. Restore D31 path entirely.
 
 ## RGNX_FW_CAT_IF_HAMLIB_V1
 

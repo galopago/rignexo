@@ -28,11 +28,15 @@ add_executable(${PROJECT_NAME})
 pico_generate_pio_header(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/src/mode_led.pio)
 
 target_sources(${PROJECT_NAME} PUBLIC
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/afsk_aplus/afsk_aplus.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/afsk_bell202.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/audio_adc.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/audio_pwm.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/cat_kenwood.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/cdc_app.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/cdc_line_state.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/hdlc_ax25.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/kiss_cdc.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/main.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/mode_led_pio.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/mode_store.c
@@ -44,6 +48,7 @@ target_sources(${PROJECT_NAME} PUBLIC
 
 target_include_directories(${PROJECT_NAME} PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/afsk_aplus
 )
 
 family_configure_device_example(${PROJECT_NAME} noos)
@@ -53,4 +58,5 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   hardware_adc
   hardware_pio
   hardware_flash
+  m
 )

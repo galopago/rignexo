@@ -31,7 +31,8 @@ static uint32_t mode_store_checksum(const mode_store_record_t *rec) {
 static bool mode_is_known(uint8_t mode) {
   return mode == (uint8_t)DEVICE_MODE_COMPOSITE ||
          mode == (uint8_t)DEVICE_MODE_AUDIO_VOX ||
-         mode == (uint8_t)DEVICE_MODE_COMPOSITE_CAT;
+         mode == (uint8_t)DEVICE_MODE_COMPOSITE_CAT ||
+         mode == (uint8_t)DEVICE_MODE_APRS_TNC;
 }
 
 device_mode_t device_mode_next(device_mode_t mode) {
@@ -40,6 +41,9 @@ device_mode_t device_mode_next(device_mode_t mode) {
   }
   if (mode == DEVICE_MODE_AUDIO_VOX) {
     return DEVICE_MODE_COMPOSITE_CAT;
+  }
+  if (mode == DEVICE_MODE_COMPOSITE_CAT) {
+    return DEVICE_MODE_APRS_TNC;
   }
   return DEVICE_MODE_COMPOSITE;
 }
@@ -143,4 +147,8 @@ bool device_mode_is_audio_vox(void) {
 
 bool device_mode_is_composite_cat(void) {
   return s_mode == DEVICE_MODE_COMPOSITE_CAT;
+}
+
+bool device_mode_is_aprs_tnc(void) {
+  return s_mode == DEVICE_MODE_APRS_TNC;
 }

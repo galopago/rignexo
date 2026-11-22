@@ -43,7 +43,7 @@ scope for this as-built stage.
 
 ## Device Modes (Summary)
 
-Two persistent modes, selected only at power-up if `MODE_SWITCH` is held
+Four persistent modes, selected only at power-up if `MODE_SWITCH` is held
 (operator must disconnect to change mode; no runtime USB re-enumeration):
 
 | Mode | Host sees | PTT | Mode LED (PIO, mostly ON) |
@@ -51,8 +51,10 @@ Two persistent modes, selected only at power-up if `MODE_SWITCH` is held
 | `COMPOSITE` (1) | UAC2 + CDC | RTS/DTR line state | 1 short OFF pulse per cycle |
 | `AUDIO_VOX` (2) | UAC2 only | VOX on speaker (TX) audio | 2 short OFF pulses per cycle |
 | `COMPOSITE_CAT` (3) | UAC2 + CDC | Kenwood CAT `TX;`/`RX;` | 3 short OFF pulses per cycle |
+| `APRS_TNC` (4) | CDC only (KISS); no UAC2 | Modem TXDELAY/TXTAIL | 4 short OFF pulses per cycle |
 
-CAT mode contract: [`cat_ptt_mode_architecture.md`](cat_ptt_mode_architecture.md).
+CAT: [`cat_ptt_mode_architecture.md`](cat_ptt_mode_architecture.md).  
+APRS TNC: [`aprs_tnc_mode_architecture.md`](aprs_tnc_mode_architecture.md).
 
 Unknown/corrupt flash → effective `COMPOSITE` + heal rules; button path is
 anti-glitch with **at most one flash write per boot**. Mode LED MUST use PIO

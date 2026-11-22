@@ -1,21 +1,21 @@
 # Tester handoff — `rignexo/firmware`
 
-## Current — `RGNX_FW_CAT_IF_HAMLIB_V1` + CAT stack
+## D40.2 tweak — pending implementer / flash
 
-| Field | Value |
+Expect: FCS → `led_off_ms=250`, gap 50, hold ~3 s
+(`RGNX_FW_MODE4_PKT_LED_TWEAK2`).
+
+## D40.1 — landed (240/60); superseded by D40.2
+
+## D40 `RGNX_FW_MODE4_PKT_LED_LONG` — STAT PASS
+
+| Check | Result |
 | --- | --- |
-| Compile | PASS |
-| Linux CAT suite | PASS (prior) |
-| WSJT-X Test CAT | **PASS** (human 2026-11-20) |
+| Idle 150/150 | PASS |
+| FCS → off=220 gap=80 | PASS (20/31 polls) |
+| hold_exp → 150/150 | PASS |
+| Decode | ok=90 kiss=49 |
+| No D39-80 / no 260/50 | PASS |
 
-### Human validation
-
-- Two different WSJT-X versions: **PASS**
-- Kenwood TS-2000 emulator: **PASS**
-- PTT via CAT (TX/RX): activates and releases — **PASS**
-
-Prior FAIL (`unsupported VFO None`) resolved by D20 / 38-byte IF frame.
-
-### Status
-
-**CLOSED** for CAT host acceptance (human + prior automated suite).
+**Human:** long OFF visible. Approved tweak → `240/60` + hold 3000
+(`note_architect_D40_led_tweak_2026-11-21.md`).

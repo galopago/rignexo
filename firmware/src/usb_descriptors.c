@@ -32,18 +32,25 @@
 #include "usb_descriptors.h"
 #include "mode_store.h"
 
-/* TinyUSB-style PID bitmap + personality bits: VOX=6, CAT=7. */
+/* TinyUSB-style PID bitmap + personality bits: VOX=6, CAT=7, TNC=8. */
 #define PID_MAP(itf, n)  ((CFG_TUD_##itf) ? (1 << (n)) : 0)
 #define USB_PID_COMPOSITE (0x4000 | PID_MAP(CDC, 0) | PID_MAP(MSC, 1) | PID_MAP(HID, 2) | \
     PID_MAP(MIDI, 3) | PID_MAP(AUDIO, 4) | PID_MAP(VENDOR, 5))
 #define USB_PID_AUDIO_VOX (0x4000 | PID_MAP(AUDIO, 4) | (1 << 6))
 #define USB_PID_COMPOSITE_CAT (USB_PID_COMPOSITE | (1 << 7))
+#define USB_PID_APRS_TNC (0x4000 | PID_MAP(CDC, 0) | (1 << 8))
 
 #define CONFIG_TOTAL_LEN_COMPOSITE \
     (TUD_CONFIG_DESC_LEN + CFG_TUD_AUDIO * TUD_AUDIO_HEADSET_STEREO_DESC_LEN + \
      CFG_TUD_CDC * TUD_CDC_DESC_LEN)
 #define CONFIG_TOTAL_LEN_AUDIO_ONLY \
     (TUD_CONFIG_DESC_LEN + CFG_TUD_AUDIO * TUD_AUDIO_HEADSET_STEREO_DESC_LEN)
+#define CONFIG_TOTAL_LEN_CDC_ONLY \
+    (TUD_CONFIG_DESC_LEN + CFG_TUD_CDC * TUD_CDC_DESC_LEN)
+
+/* APRS_TNC: CDC starts at interface 0 (no UAC2). */
+#define ITF_NUM_CDC_TNC       0
+#define ITF_NUM_TOTAL_CDC_ONLY 2
 
 #if CFG_TUSB_MCU == OPT_MCU_LPC175X_6X || CFG_TUSB_MCU == OPT_MCU_LPC177X_8X || CFG_TUSB_MCU == OPT_MCU_LPC40XX
   #define EPNUM_AUDIO_IN    0x03
@@ -133,12 +140,32 @@ static tusb_desc_device_t const desc_device_composite_cat = {
     .bNumConfigurations = 0x01
 };
 
+static tusb_desc_device_t const desc_device_aprs_tnc = {
+    .bLength            = sizeof(tusb_desc_device_t),
+    .bDescriptorType    = TUSB_DESC_DEVICE,
+    .bcdUSB             = 0x0200,
+    .bDeviceClass       = TUSB_CLASS_MISC,
+    .bDeviceSubClass    = MISC_SUBCLASS_COMMON,
+    .bDeviceProtocol    = MISC_PROTOCOL_IAD,
+    .bMaxPacketSize0    = CFG_TUD_ENDPOINT0_SIZE,
+    .idVendor           = 0xCafe,
+    .idProduct          = USB_PID_APRS_TNC,
+    .bcdDevice          = 0x0100,
+    .iManufacturer      = 0x01,
+    .iProduct           = 0x07, /* "RIGNEXO KISS TNC" */
+    .iSerialNumber      = 0x03,
+    .bNumConfigurations = 0x01
+};
+
 uint8_t const *tud_descriptor_device_cb(void) {
   if (device_mode_is_audio_vox()) {
     return (uint8_t const *)&desc_device_audio_vox;
   }
   if (device_mode_is_composite_cat()) {
     return (uint8_t const *)&desc_device_composite_cat;
+  }
+  if (device_mode_is_aprs_tnc()) {
+    return (uint8_t const *)&desc_device_aprs_tnc;
   }
   return (uint8_t const *)&desc_device_composite;
 }
@@ -157,6 +184,11 @@ static uint8_t const desc_fs_configuration_audio_vox[] = {
     TUD_AUDIO_HEADSET_STEREO_DESCRIPTOR(2, EPNUM_AUDIO_OUT, EPNUM_AUDIO_IN | 0x80)
 };
 
+static uint8_t const desc_fs_configuration_cdc_only[] = {
+    TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL_CDC_ONLY, 0, CONFIG_TOTAL_LEN_CDC_ONLY, 0x00, 100),
+    TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_TNC, 6, EPNUM_CDC_NOTIF, 8, EPNUM_CDC_OUT, EPNUM_CDC_IN, 64)
+};
+
 #if TUD_OPT_HIGH_SPEED
 static uint8_t const desc_hs_configuration_composite[] = {
     TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL_COMPOSITE, 0, CONFIG_TOTAL_LEN_COMPOSITE, 0x00, 100),
@@ -167,6 +199,11 @@ static uint8_t const desc_hs_configuration_composite[] = {
 static uint8_t const desc_hs_configuration_audio_vox[] = {
     TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL_AUDIO_ONLY, 0, CONFIG_TOTAL_LEN_AUDIO_ONLY, 0x00, 100),
     TUD_AUDIO_HEADSET_STEREO_DESCRIPTOR(2, EPNUM_AUDIO_OUT, EPNUM_AUDIO_IN | 0x80)
+};
+
+static uint8_t const desc_hs_configuration_cdc_only[] = {
+    TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL_CDC_ONLY, 0, CONFIG_TOTAL_LEN_CDC_ONLY, 0x00, 100),
+    TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_TNC, 6, EPNUM_CDC_NOTIF, 8, EPNUM_CDC_OUT, EPNUM_CDC_IN, 512)
 };
 
 static uint8_t desc_other_speed_config[CONFIG_TOTAL_LEN_COMPOSITE];
@@ -190,14 +227,17 @@ uint8_t const *tud_descriptor_device_qualifier_cb(void) {
 uint8_t const *tud_descriptor_other_speed_configuration_cb(uint8_t index) {
   (void)index;
 
-  const bool audio_vox = device_mode_is_audio_vox();
   const uint8_t *src;
   uint16_t len;
 
-  if (audio_vox) {
+  if (device_mode_is_audio_vox()) {
     src = (tud_speed_get() == TUSB_SPEED_HIGH) ? desc_fs_configuration_audio_vox
                                               : desc_hs_configuration_audio_vox;
     len = CONFIG_TOTAL_LEN_AUDIO_ONLY;
+  } else if (device_mode_is_aprs_tnc()) {
+    src = (tud_speed_get() == TUSB_SPEED_HIGH) ? desc_fs_configuration_cdc_only
+                                              : desc_hs_configuration_cdc_only;
+    len = CONFIG_TOTAL_LEN_CDC_ONLY;
   } else {
     src = (tud_speed_get() == TUSB_SPEED_HIGH) ? desc_fs_configuration_composite
                                               : desc_hs_configuration_composite;
@@ -212,16 +252,25 @@ uint8_t const *tud_descriptor_other_speed_configuration_cb(uint8_t index) {
 
 uint8_t const *tud_descriptor_configuration_cb(uint8_t index) {
   (void)index;
-  const bool audio_vox = device_mode_is_audio_vox();
 #if TUD_OPT_HIGH_SPEED
-  if (audio_vox) {
+  if (device_mode_is_audio_vox()) {
     return (tud_speed_get() == TUSB_SPEED_HIGH) ? desc_hs_configuration_audio_vox
                                                 : desc_fs_configuration_audio_vox;
+  }
+  if (device_mode_is_aprs_tnc()) {
+    return (tud_speed_get() == TUSB_SPEED_HIGH) ? desc_hs_configuration_cdc_only
+                                                : desc_fs_configuration_cdc_only;
   }
   return (tud_speed_get() == TUSB_SPEED_HIGH) ? desc_hs_configuration_composite
                                               : desc_fs_configuration_composite;
 #else
-  return audio_vox ? desc_fs_configuration_audio_vox : desc_fs_configuration_composite;
+  if (device_mode_is_audio_vox()) {
+    return desc_fs_configuration_audio_vox;
+  }
+  if (device_mode_is_aprs_tnc()) {
+    return desc_fs_configuration_cdc_only;
+  }
+  return desc_fs_configuration_composite;
 #endif
 }
 
@@ -243,6 +292,7 @@ static char const *string_desc_arr[] = {
   "RIGNEXO Speakers",
   "RIGNEXO Microphone",
   "RIGNEXO CDC",
+  "RIGNEXO KISS TNC",
 };
 
 static uint16_t _desc_str[32 + 1];
